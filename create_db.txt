@@ -1,0 +1,34 @@
+create database meetingplace;
+use meetingplace;
+
+CREATE TABLE quotes
+(quotes_id INT NOT NULL AUTO_INCREMENT,
+ quotes_date DATE,
+ quotes_text TEXT,
+ PRIMARY KEY (quotes_id)
+);
+
+CREATE TABLE report
+(reports_id INT NOT NULL AUTO_INCREMENT,
+ quote_id INT,
+ report_date DATE,
+ author VARCHAR(20),
+ task VARCHAR(100),
+ task_time BIGINT,
+ additional TEXT,
+ PRIMARY KEY (reports_id),
+ FOREIGN KEY (quote_id) REFERENCES quotes (quotes_id)
+);
+
+CREATE TABLE affirmation 
+(affirmation_id INT NOT NULL AUTO_INCREMENT
+ affirmation_date DATE
+ affirmation_text TEXT
+ PRIMARY KEY (affirmation_id)
+);
+
+CREATE TABLE lastts 
+(time_id INT NOT NULL AUTO_INCREMENT
+ last_time TIMESTAMP,
+ PRIMARY KEY (time_id)
+);
