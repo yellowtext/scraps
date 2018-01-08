@@ -34,9 +34,9 @@ class DBConnector:
         quote_id = str(fetchrow[1], "utf-8")
         report_date = str(fetchrow[2], "utf-8")
         author = str(fetchrow[3], "utf-8")
-        task = str(fetchrow[4], "utf-8")
+        task = fetchrow[4].decode('cp1251')
         task_time = str(fetchrow[5], "utf-8")
-        additional = str(fetchrow[6], "utf-8")
+        additional = str(fetchrow[6], "cp1251")
         obj_report = report(quote_id, report_date, author, task, task_time, additional)
         return obj_report
 
