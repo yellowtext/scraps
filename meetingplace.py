@@ -27,6 +27,9 @@ class lastts:
         self.last_time = last_time
 
 class DBConnector:
+    def __init__(self, DB):
+        self.DB = DB
+
     def readQuote (self, fetchrow):
         quotes_date = str(fetchrow[1], "cp866")
         quotes_text = str(fetchrow[2], "cp866")
@@ -54,8 +57,20 @@ class DBConnector:
         obj_lastts = lastts(last_time)
         return obj_lastts
 
+    def writeReports (self, obj_report):
+        self.DB.query("""INSERT INTO reports
+                         (quote_id, report_date, author, task, task_time, additional) 
+                         VALUES ('""" + obj_report.quote_id + """', '""" + obj_report.report_date +
+                         """', '""" + obj_report.author + """', '""" + obj_report.task + """', '"""
+                         + obj_report.task_time +"""', '""" + obj_report.additional + """')""")
+
 if __name__ == '__main__':
-    db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db="meetingplace")
+    db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db='meetingplace')
+
+    connector = DBConnector(db)
+    obj_report = report('1', '2017-01-01', 'DeathF', 'Extra', '360', 'Lessons5')
+    connector.writeReports(obj_report)
+
     db.query('SELECT * FROM reports')
     r = db.store_result()
 
@@ -64,8 +79,6 @@ if __name__ == '__main__':
     i = i.fetch_row()
     i = int(i[0][0])
 
-    read = DBConnector()
-
     while i != 0:
-        print(read.readReport(r.fetch_row()[0]))
+        print(connector.readReport(r.fetch_row()[0]))
         i -= 1
