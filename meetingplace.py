@@ -28,36 +28,44 @@ class lastts:
 
 class DBConnector:
     def readQuote (self, fetchrow):
-        quotes_date = str(fetchrow[1], "utf-8")
-        quotes_text = str(fetchrow[2], "utf-8")
+        quotes_date = str(fetchrow[1], "cp866")
+        quotes_text = str(fetchrow[2], "cp866")
         obj_quote = quotes(quotes_date, quotes_text)
         return obj_quote
 
     def readReport (self,fetchrow):
         quote_id = fetchrow[1]
         report_date = fetchrow[2]
-        author = str(fetchrow[3], "utf-8")
-        task = str(fetchrow[4], "utf-8")
+        author = str(fetchrow[3], "cp866")
+        task = str(fetchrow[4], "cp866")
         task_time = fetchrow[5]
-        additional = str(fetchrow[6], "utf-8")
+        additional = str(fetchrow[6], "cp866")
         obj_report = report(quote_id, report_date, author, task, task_time, additional)
         return obj_report
 
     def readAffirmation (self,fetchrow):
-        affirmation_date = str(fetchrow[1], "utf-8")
-        affirmation_text = str(fetchrow[2], "utf-8")
+        affirmation_date = str(fetchrow[1], "cp866")
+        affirmation_text = str(fetchrow[2], "cp866")
         obj_affirmation = affirmation(affirmation_date, affirmation_text)
         return obj_affirmation
 
     def readLastts (self, fetchrow):
-        last_time = str(fetchrow[1], "utf-8")
+        last_time = str(fetchrow[1], "cp866")
         obj_lastts = lastts(last_time)
         return obj_lastts
 
 if __name__ == '__main__':
-    db = _mysql.connect(host="localhost", user="root", passwd="toor", db="meetingplace")
+    db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db="meetingplace")
     db.query('SELECT * FROM reports')
-    r = db.use_result()
+    r = db.store_result()
 
-    readR = DBConnector()
-    print(readR.readReport(r.fetch_row()[0]))
+    db.query('SELECT COUNT(author) FROM reports')
+    i = db.use_result()
+    i = i.fetch_row()
+    i = int(i[0][0])
+
+    read = DBConnector()
+
+    while i != 0:
+        print(read.readReport(r.fetch_row()[0]))
+        i -= 1
