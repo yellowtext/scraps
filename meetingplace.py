@@ -98,7 +98,8 @@ class rawReport:
 
 class Parser:
     def parsePost(self, line_posts):
-        quote_id = '81'
+        quote_id = 'None'
+        quote_id = 'None'
         report_date = author = quotes_date = quotes_text = ''
         task = []
         task_time = []
@@ -162,13 +163,14 @@ if __name__ == '__main__':
     obj_quotes = quotes(obj_rawReport.obj_report[0].report_date, obj_rawReport.quote)
     connector.writeQuote(obj_quotes)
 
-    for i in range(len(obj_rawReport.obj_report)):
-        connector.writeReport(obj_rawReport.obj_report[i])
+    db.query('SELECT MAX(quotes_id) FROM quotes')
+    r = db.store_result()
+    quote_id = "".join(str(v) for v in r.fetch_row())
+    quote_id = "".join(re.findall(r'[0-9]+', quote_id))
 
-    #db.query('SELECT MAX(quotes_id) FROM quotes')
-    #r = db.store_result()
-    #quote_id = "".join(str(v) for v in r.fetch_row())
-    #quote_id = "".join(re.findall(r'[0-9]+', quote_id))
+    for i in range(len(obj_rawReport.obj_report)):
+        obj_rawReport.obj_report[i].quote_id = quote_id
+        connector.writeReport(obj_rawReport.obj_report[i])
 
     #for i in range(len(task)):
     #    obj_report = report(quote_id, report_date, author, str(task[i]), str(task_time[i]), str(additional[i]))
