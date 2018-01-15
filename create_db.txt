@@ -29,6 +29,6 @@ CREATE TABLE affirmation
 
 CREATE TABLE lastts 
 (time_id INT NOT NULL AUTO_INCREMENT
- last_time TIMESTAMP,
+ last_time BIGINT,
  PRIMARY KEY (time_id)
 );
