@@ -3,6 +3,11 @@
 import _mysql
 import re
 import chardet
+import datetime
+import vk_api
+
+class Post:
+    a = '?'
 
 class quotes:
     def __init__(self, quotes_date, quotes_text):
@@ -24,7 +29,7 @@ class report:
     def __str__(self):
         return self.report_date + " " + self.author + " " + self.task + " " + self.task_time + " " + self.quote_id + " " + self.additional
 
-class affirmation:
+class affirmation(Post):
     def __init__(self, affirmation_date, affirmation_text):
         self.affirmation_date = affirmation_date
         self.affirmation_text = affirmation_text
@@ -91,14 +96,27 @@ class DBConnector:
         self.DB.query("""INSERT INTO lastts (last_time) 
                          VALUES ('""" + obj_lastts.last_time + """')""")
 
-class rawReport:
+class rawReport(Post):
     def __init__(self, obj_report, quote):
         self.obj_report = obj_report
         self.quote = quote
 
 class Parser:
-    def parsePost(self, line_posts):
-        quote_id = 'None'
+    def parseAffirmation(self, date_post, line_posts):
+        affirmation_date = affirmation_text = ''
+
+        affirmation_date = str(datetime.datetime.fromtimestamp(date_post))
+        affirmation_date = "".join(re.findall(r'\d{4}-\d{2}-\d{2}', affirmation_date))
+
+        for i in range(len(line_posts)):
+            if re.findall(r'^[A-za-zА-Яа-я]+', line_posts[i]):
+                affirmation_text = "".join(re.findall(r'^[A-za-zА-Яа-я]+', line_posts[i]))
+
+        obj_affirmation = affirmation(affirmation_date, affirmation_text)
+
+        return obj_affirmation
+
+    def parseReport(self, line_posts):
         quote_id = 'None'
         report_date = author = quotes_date = quotes_text = ''
         task = []
@@ -107,31 +125,42 @@ class Parser:
         obj_report = []
 
         for i in range(len(line_posts)):
-            if re.findall(r'#r.*$', line_posts[i]):
-                if "".join(re.findall(r'r.*$', line_posts[i])) == 'r':
-                    author = 'skyshine'
-                else:
-                    author = 'DeathF'
+            if "".join(re.findall(r'#r.*$', line_posts[0])) == '#report':
+                author = 'DeathF'
+            else:
+                author = 'skyshine'
 
-            if re.findall(r'[0-9]+\.[0-9]+\.[0-9]', line_posts[i]):
-                quotes_date = report_date = "20" + "".join(
-                    re.findall(r'([0-9]+)\]$', line_posts[i]) + re.findall(r'\.[0-9]+\.', line_posts[i]) + re.findall(
-                        r'\[([0-9]+)', line_posts[i]))
+            if re.findall(r'[0-9]+\.[0-9]+\.[0-9]+', line_posts[i]):
+                if len("".join(re.findall(r'[0-9]+\.[0-9]+\.[0-9]+', line_posts[i]))) == 8:
+                    quotes_date = report_date = "20" + "".join(
+                        re.findall(r'(\d{2})\] ?$', line_posts[i]) + re.findall(r'\.\d{2}\.', line_posts[i]) + re.findall(
+                            r'\[(\d{2})', line_posts[i]))
+
+                else:
+                    quotes_date = report_date = "20" + "".join(
+                        re.findall(r'(\d{2})\] ?$', line_posts[i]) + re.findall(r'\.\d{2}\.', line_posts[i])) + "0" + "".join(re.findall(
+                            r'\[(\d{1})', line_posts[i]))
 
             if re.findall(r'.*\|.*', line_posts[i]):
                 task.append("".join(re.findall(r'(.*) \|', line_posts[i])))
                 task_time.append(re.findall(r'\| (.*)', line_posts[i]))
 
+                task[len(task) - 1] = task[len(task) - 1].replace("'", "\\'")
+
                 if re.findall(r'\(', line_posts[i + 1]):
                     additional.append("".join(re.findall(r'\((.*)\)', line_posts[i + 1])))
+                    additional[len(additional) - 1] = additional[len(additional) - 1].replace("'", "\\'")
+                    print(additional)
                 else:
                     additional.append("None")
 
             if re.findall(r'^-.*', line_posts[i]):
-                if re.findall(r'[а-яА-Яa-zA-Z0-9_]+', line_posts[i + 1]):
+                if re.findall(r'.+', line_posts[i + 1]):
                     quotes_text = line_posts[i + 1]
+                    quotes_text = quotes_text.replace("'", "\\'")
                 else:
                     quotes_text = line_posts[i + 2]
+                    quotes_text = quotes_text.replace("'", "\\'")
 
         for i in range(len(task_time)):
             if re.findall(r'.*ч.*м', str(task_time[i])):
@@ -149,32 +178,76 @@ class Parser:
 
         return obj_rawReport
 
+    def parsePost(self, date_posts, line_posts):
+        parse = Parser
+
+        line_posts = line_posts.split('\n')
+
+        if re.findall(r'] #r.*$', line_posts[0]):
+            return parse.parseReport(parse, line_posts)
+        elif re.findall(r'^#af.*$', line_posts[0]):
+            return parse.parseAffirmation(parse, date_posts, line_posts)
+
+class VK:
+    def writeBD(self, login, password, db):
+        connector = DBConnector(db)
+        parse = Parser()
+
+        if(db.query('SELECT MAX(last_time) FROM lastts')):
+            r = db.store_result()
+            last_time = "".join(str(v) for v in r.fetch_row())
+            last_time = int("".join(re.findall(r'[0-9]+', last_time)))
+
+        else:
+            r = db.store_result()
+            last_time = 0
+
+        vk_session = vk_api.VkApi(login, password)
+
+        try:
+            vk_session.auth()
+        except vk_api.AuthError as error_msg:
+            print(error_msg)
+            return
+
+        tools = vk_api.VkTools(vk_session)
+
+        wall = tools.get_all('wall.get', 100, {'owner_id': -158045488})
+
+        for i in range(len(wall['items'])):
+            if wall['items'][i]['date'] > last_time:
+                print(wall['items'][i]['text'])
+                obj = parse.parsePost(wall['items'][i]['date'], wall['items'][i]['text'])
+
+                if type(obj) == rawReport:
+                    obj_quotes = quotes(obj.obj_report[0].report_date, obj.quote)
+                    connector.writeQuote(obj_quotes)
+
+                    db.query('SELECT MAX(quotes_id) FROM quotes')
+                    r = db.store_result()
+                    quote_id = "".join(str(v) for v in r.fetch_row())
+                    quote_id = "".join(re.findall(r'[0-9]+', quote_id))
+
+                    for i in range(len(obj.obj_report)):
+                        obj.obj_report[i].quote_id = quote_id
+                        connector.writeReport(obj.obj_report[i])
+
+                    if i == len(wall['items']) - 1:
+                        connector.writeLastts(['items'][i]['date'])
+
+                elif type(obj) == affirmation:
+                    connector.writeAffirmation(obj)
+
+                    if i == len(wall['items']) - 1:
+                        connector.writeLastts(['items'][i]['date'])
+
 if __name__ == '__main__':
     db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db='meetingplace')
 
     connector = DBConnector(db)
 
-    posts = open('C:\\Users\\DeathF\\Desktop\\project\\posts1.txt', 'r', encoding='utf8')
-    line_posts = posts.readlines()
-
-    parse = Parser()
-    obj_rawReport = parse.parsePost(line_posts)
-
-    obj_quotes = quotes(obj_rawReport.obj_report[0].report_date, obj_rawReport.quote)
-    connector.writeQuote(obj_quotes)
-
-    db.query('SELECT MAX(quotes_id) FROM quotes')
-    r = db.store_result()
-    quote_id = "".join(str(v) for v in r.fetch_row())
-    quote_id = "".join(re.findall(r'[0-9]+', quote_id))
-
-    for i in range(len(obj_rawReport.obj_report)):
-        obj_rawReport.obj_report[i].quote_id = quote_id
-        connector.writeReport(obj_rawReport.obj_report[i])
-
-    #for i in range(len(task)):
-    #    obj_report = report(quote_id, report_date, author, str(task[i]), str(task_time[i]), str(additional[i]))
-    #    connector.writeReport(obj_report)
+    obj_vk = VK
+    obj_vk.writeBD(obj_vk, '89831283291', 'Ghjuhfvvbhjdfybt', db)
 
     db.query('SELECT * FROM reports')
     r = db.store_result()
