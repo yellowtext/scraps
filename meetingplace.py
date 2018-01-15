@@ -6,10 +6,7 @@ import chardet
 import datetime
 import vk_api
 
-class Post:
-    a = '?'
-
-class quotes:
+class Quote:
     def __init__(self, quotes_date, quotes_text):
         self.quotes_date = quotes_date
         self.quotes_text = quotes_text
@@ -17,7 +14,7 @@ class quotes:
     def __str__(self):
         return self.quotes_date + " " + self.quotes_text
 
-class report:
+class Report:
     def __init__(self, quote_id, report_date, author, task, task_time, additional):
         self.quote_id = quote_id
         self.report_date = report_date
@@ -29,7 +26,7 @@ class report:
     def __str__(self):
         return self.report_date + " " + self.author + " " + self.task + " " + self.task_time + " " + self.quote_id + " " + self.additional
 
-class affirmation(Post):
+class Affirmation:
     def __init__(self, affirmation_date, affirmation_text):
         self.affirmation_date = affirmation_date
         self.affirmation_text = affirmation_text
@@ -37,7 +34,7 @@ class affirmation(Post):
     def __str__(self):
         return self.affirmation_date + " " + self.affirmation_text
 
-class lastts:
+class Lastts:
     def __init__(self, last_time):
         self.last_time = last_time
 
@@ -51,7 +48,7 @@ class DBConnector:
     def readQuote (self, fetchrow):
         quotes_date = fetchrow[1]
         quotes_text = str(fetchrow[2], "utf-8")
-        obj_quote = quotes(quotes_date, quotes_text)
+        obj_quote = Quote(quotes_date, quotes_text)
         return obj_quote
 
     def readReport (self,fetchrow):
@@ -61,18 +58,18 @@ class DBConnector:
         task = str(fetchrow[4], "utf-8")
         task_time = fetchrow[5]
         additional = str(fetchrow[6], "utf-8")
-        obj_report = report(quote_id, report_date, author, task, task_time, additional)
+        obj_report = Report(quote_id, report_date, author, task, task_time, additional)
         return obj_report
 
     def readAffirmation (self,fetchrow):
         affirmation_date = fetchrow[1]
         affirmation_text = str(fetchrow[2], "utf-8")
-        obj_affirmation = affirmation(affirmation_date, affirmation_text)
+        obj_affirmation = Affirmation(affirmation_date, affirmation_text)
         return obj_affirmation
 
     def readLastts (self, fetchrow):
         last_time = fetchrow[1]
-        obj_lastts = lastts(last_time)
+        obj_lastts = Lastts(last_time)
         return obj_lastts
 
     def writeQuote (self, obj_quote):
@@ -94,9 +91,9 @@ class DBConnector:
 
     def writeLastts (self, obj_lastts):
         self.DB.query("""INSERT INTO lastts (last_time) 
-                         VALUES ('""" + obj_lastts.last_time + """')""")
+                         VALUES ('""" + str(obj_lastts.last_time) + """')""")
 
-class rawReport(Post):
+class rawReport:
     def __init__(self, obj_report, quote):
         self.obj_report = obj_report
         self.quote = quote
@@ -112,7 +109,7 @@ class Parser:
             if re.findall(r'^[A-za-zА-Яа-я]+', line_posts[i]):
                 affirmation_text = "".join(re.findall(r'^[A-za-zА-Яа-я]+', line_posts[i]))
 
-        obj_affirmation = affirmation(affirmation_date, affirmation_text)
+        obj_affirmation = Affirmation(affirmation_date, affirmation_text)
 
         return obj_affirmation
 
@@ -150,7 +147,6 @@ class Parser:
                 if re.findall(r'\(', line_posts[i + 1]):
                     additional.append("".join(re.findall(r'\((.*)\)', line_posts[i + 1])))
                     additional[len(additional) - 1] = additional[len(additional) - 1].replace("'", "\\'")
-                    print(additional)
                 else:
                     additional.append("None")
 
@@ -172,7 +168,7 @@ class Parser:
                 task_time[i] = int("".join(re.findall(r'([0-9]+)м', str(task_time[i]))))
 
         for i in range(len(task)):
-            obj_report.append(report(quote_id, report_date, author, task[i], str(task_time[i]), additional[i]))
+            obj_report.append(Report(quote_id, report_date, author, task[i], str(task_time[i]), additional[i]))
 
         obj_rawReport = rawReport(obj_report, quotes_text)
 
@@ -193,13 +189,14 @@ class VK:
         connector = DBConnector(db)
         parse = Parser()
 
-        if(db.query('SELECT MAX(last_time) FROM lastts')):
-            r = db.store_result()
-            last_time = "".join(str(v) for v in r.fetch_row())
+        db.query('SELECT MAX(last_time) FROM lastts')
+        r = db.store_result()
+        last_time = "".join(str(v) for v in r.fetch_row())
+
+        if last_time != '(None,)':
             last_time = int("".join(re.findall(r'[0-9]+', last_time)))
 
-        else:
-            r = db.store_result()
+        if type(last_time) != int:
             last_time = 0
 
         vk_session = vk_api.VkApi(login, password)
@@ -214,13 +211,17 @@ class VK:
 
         wall = tools.get_all('wall.get', 100, {'owner_id': -158045488})
 
+        max_time = 0
+
         for i in range(len(wall['items'])):
-            if wall['items'][i]['date'] > last_time:
-                print(wall['items'][i]['text'])
+            if int(wall['items'][i]['date']) > max_time:
+                max_time = int(wall['items'][i]['date'])
+
+            if int(wall['items'][i]['date']) > int(last_time):
                 obj = parse.parsePost(wall['items'][i]['date'], wall['items'][i]['text'])
 
                 if type(obj) == rawReport:
-                    obj_quotes = quotes(obj.obj_report[0].report_date, obj.quote)
+                    obj_quotes = Quote(obj.obj_report[0].report_date, obj.quote)
                     connector.writeQuote(obj_quotes)
 
                     db.query('SELECT MAX(quotes_id) FROM quotes')
@@ -232,14 +233,12 @@ class VK:
                         obj.obj_report[i].quote_id = quote_id
                         connector.writeReport(obj.obj_report[i])
 
-                    if i == len(wall['items']) - 1:
-                        connector.writeLastts(['items'][i]['date'])
-
-                elif type(obj) == affirmation:
+                elif type(obj) == Affirmation:
                     connector.writeAffirmation(obj)
 
-                    if i == len(wall['items']) - 1:
-                        connector.writeLastts(['items'][i]['date'])
+            if i == (len(wall['items']) - 1):
+                obj_lastts = Lastts(str(max_time))
+                connector.writeLastts(obj_lastts)
 
 if __name__ == '__main__':
     db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db='meetingplace')
