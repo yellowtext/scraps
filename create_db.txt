@@ -8,7 +8,7 @@ CREATE TABLE quotes
  PRIMARY KEY (quotes_id)
 );
 
-CREATE TABLE report
+CREATE TABLE reports
 (reports_id INT NOT NULL AUTO_INCREMENT,
  quote_id INT,
  report_date DATE,
@@ -21,14 +21,14 @@ CREATE TABLE report
 );
 
 CREATE TABLE affirmation 
-(affirmation_id INT NOT NULL AUTO_INCREMENT
- affirmation_date DATE
- affirmation_text TEXT
+(affirmation_id INT NOT NULL AUTO_INCREMENT,
+ affirmation_date DATE,
+ affirmation_text TEXT,
  PRIMARY KEY (affirmation_id)
 );
 
 CREATE TABLE lastts 
-(time_id INT NOT NULL AUTO_INCREMENT
+(time_id INT NOT NULL AUTO_INCREMENT,
  last_time BIGINT,
  PRIMARY KEY (time_id)
 );

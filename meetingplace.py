@@ -5,14 +5,15 @@ import re
 import chardet
 import datetime
 import vk_api
+from VK import *
 
 class Quote:
-    def __init__(self, quotes_date, quotes_text):
-        self.quotes_date = quotes_date
-        self.quotes_text = quotes_text
+    def __init__(self, quote_date, quote_text):
+        self.quote_date = quote_date
+        self.quote_text = quote_text
 
     def __str__(self):
-        return self.quotes_date + " " + self.quotes_text
+        return self.quote_date + " " + self.quote_text
 
 class Report:
     def __init__(self, quote_id, report_date, author, task, task_time, additional):
@@ -41,14 +42,16 @@ class Lastts:
     def __str__(self):
         return self.last_time
 
+
+#"DB" connector because DataBase. Not BD - it's wrong.
 class DBConnector:
     def __init__(self, DB):
         self.DB = DB
 
     def readQuote (self, fetchrow):
-        quotes_date = fetchrow[1]
-        quotes_text = str(fetchrow[2], "utf-8")
-        obj_quote = Quote(quotes_date, quotes_text)
+        quote_date = fetchrow[1]
+        quote_text = str(fetchrow[2], "utf-8")
+        obj_quote = Quote(quote_date, quote_text)
         return obj_quote
 
     def readReport (self,fetchrow):
@@ -74,8 +77,8 @@ class DBConnector:
 
     def writeQuote (self, obj_quote):
         self.DB.query("""INSERT INTO quotes (quotes_date, quotes_text) 
-                         VALUES ('""" + obj_quote.quotes_date + """', '""" +
-                         obj_quote.quotes_text + """')""")
+                         VALUES ('""" + obj_quote.quote_date + """', '""" +
+                         obj_quote.quote_text + """')""")
 
     def writeReport (self, obj_report):
         self.DB.query("""INSERT INTO reports
@@ -184,61 +187,6 @@ class Parser:
         elif re.findall(r'^#af.*$', line_posts[0]):
             return parse.parseAffirmation(parse, date_posts, line_posts)
 
-class VK:
-    def writeBD(self, login, password, db):
-        connector = DBConnector(db)
-        parse = Parser()
-
-        db.query('SELECT MAX(last_time) FROM lastts')
-        r = db.store_result()
-        last_time = "".join(str(v) for v in r.fetch_row())
-
-        if last_time != '(None,)':
-            last_time = int("".join(re.findall(r'[0-9]+', last_time)))
-
-        if type(last_time) != int:
-            last_time = 0
-
-        vk_session = vk_api.VkApi(login, password)
-
-        try:
-            vk_session.auth()
-        except vk_api.AuthError as error_msg:
-            print(error_msg)
-            return
-
-        tools = vk_api.VkTools(vk_session)
-
-        wall = tools.get_all('wall.get', 100, {'owner_id': -158045488})
-
-        max_time = 0
-
-        for i in range(len(wall['items'])):
-            if int(wall['items'][i]['date']) > max_time:
-                max_time = int(wall['items'][i]['date'])
-
-            if int(wall['items'][i]['date']) > int(last_time):
-                obj = parse.parsePost(wall['items'][i]['date'], wall['items'][i]['text'])
-
-                if type(obj) == rawReport:
-                    obj_quotes = Quote(obj.obj_report[0].report_date, obj.quote)
-                    connector.writeQuote(obj_quotes)
-
-                    db.query('SELECT MAX(quotes_id) FROM quotes')
-                    r = db.store_result()
-                    quote_id = "".join(str(v) for v in r.fetch_row())
-                    quote_id = "".join(re.findall(r'[0-9]+', quote_id))
-
-                    for i in range(len(obj.obj_report)):
-                        obj.obj_report[i].quote_id = quote_id
-                        connector.writeReport(obj.obj_report[i])
-
-                elif type(obj) == Affirmation:
-                    connector.writeAffirmation(obj)
-
-            if i == (len(wall['items']) - 1):
-                obj_lastts = Lastts(str(max_time))
-                connector.writeLastts(obj_lastts)
 
 if __name__ == '__main__':
     db = _mysql.connect(host="localhost", user="root", passwd="Ghjuhfvvbhjdfybt72", db='meetingplace')
